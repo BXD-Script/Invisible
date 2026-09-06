@@ -1,0 +1,306 @@
+if _G.InvisibleConnections then
+    for _, conn in pairs(_G.InvisibleConnections) do
+        if conn then conn:Disconnect() end
+    end
+end
+_G.InvisibleConnections = {}
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local RootPart = Character:WaitForChild("HumanoidRootPart")
+
+local IsInvisible = false
+local CharacterParts = {}
+
+local Config = {
+    Transparency = 0.5,
+    TeleportDistance = 200000
+}
+
+local function CacheCharacterParts(char)
+    CharacterParts = {}
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.Transparency < 1 then
+            table.insert(CharacterParts, part)
+        end
+    end
+end
+
+CacheCharacterParts(Character)
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "InvisibleGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 160, 0, 95)
+MainFrame.Position = UDim2.new(0.5, -80, 0.1, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+
+local UICornerMain = Instance.new("UICorner")
+UICornerMain.CornerRadius = UDim.new(0, 10)
+UICornerMain.Parent = MainFrame
+
+local UIStrokeMain = Instance.new("UIStroke")
+UIStrokeMain.Color = Color3.fromRGB(60, 60, 70)
+UIStrokeMain.Thickness = 1.5
+UIStrokeMain.Parent = MainFrame
+
+local SettingsFrame = Instance.new("Frame")
+SettingsFrame.Size = UDim2.new(0, 180, 0, 130)
+SettingsFrame.Position = UDim2.new(1, 10, 0, 0)
+SettingsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+SettingsFrame.BorderSizePixel = 0
+SettingsFrame.Visible = false
+SettingsFrame.Parent = MainFrame
+
+local UICornerSet = Instance.new("UICorner")
+UICornerSet.CornerRadius = UDim.new(0, 10)
+UICornerSet.Parent = SettingsFrame
+
+local UIStrokeSet = Instance.new("UIStroke")
+UIStrokeSet.Color = Color3.fromRGB(70, 70, 85)
+UIStrokeSet.Thickness = 1.5
+UIStrokeSet.Parent = SettingsFrame
+
+local SetTitle = Instance.new("TextLabel")
+SetTitle.Size = UDim2.new(1, 0, 0, 25)
+SetTitle.BackgroundTransparency = 1
+SetTitle.Text = "SETTINGS"
+SetTitle.TextColor3 = Color3.fromRGB(200, 200, 210)
+SetTitle.TextSize = 11
+SetTitle.Font = Enum.Font.GothamBold
+SetTitle.Parent = SettingsFrame
+
+local function CreateSlider(name, yPos, minVal, maxVal, currentVal, callback)
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -16, 0, 15)
+    Label.Position = UDim2.new(0, 8, 0, yPos)
+    Label.BackgroundTransparency = 1
+    Label.Text = name .. ": " .. tostring(currentVal)
+    Label.TextColor3 = Color3.fromRGB(170, 170, 180)
+    Label.TextSize = 10
+    Label.Font = Enum.Font.Gotham
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = SettingsFrame
+
+    local Track = Instance.new("Frame")
+    Track.Size = UDim2.new(1, -16, 0, 6)
+    Track.Position = UDim2.new(0, 8, 0, yPos + 16)
+    Track.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    Track.BorderSizePixel = 0
+    Track.Parent = SettingsFrame
+
+    local UICornerTrk = Instance.new("UICorner")
+    UICornerTrk.CornerRadius = UDim.new(1, 0)
+    UICornerTrk.Parent = Track
+
+    local Fill = Instance.new("Frame")
+    Fill.Size = UDim2.new((currentVal - minVal) / (maxVal - minVal), 0, 1, 0)
+    Fill.BackgroundColor3 = Color3.fromRGB(80, 140, 255)
+    Fill.BorderSizePixel = 0
+    Fill.Parent = Track
+
+    local UICornerFill = Instance.new("UICorner")
+    UICornerFill.CornerRadius = UDim.new(1, 0)
+    UICornerFill.Parent = Fill
+
+    local Knob = Instance.new("TextButton")
+    Knob.Size = UDim2.new(0, 12, 0, 12)
+    Knob.Position = UDim2.new(1, -6, 0.5, -6)
+    Knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Knob.Text = ""
+    Knob.Parent = Fill
+
+    local UICornerKnob = Instance.new("UICorner")
+    UICornerKnob.CornerRadius = UDim.new(1, 0)
+    UICornerKnob.Parent = Knob
+
+    local sliding = false
+    Track.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            sliding = true
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            sliding = false
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if sliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local pos = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
+            Fill.Size = UDim2.new(pos, 0, 1, 0)
+            local val = minVal + (maxVal - minVal) * pos
+            callback(val, Label, name)
+        end
+    end)
+end
+
+CreateSlider("Transparency", 28, 0.1, 1.0, Config.Transparency, function(val, lbl, name)
+    Config.Transparency = math.floor(val * 100 + 0.5) / 100
+    lbl.Text = name .. ": " .. tostring(Config.Transparency)
+    if IsInvisible then
+        for _, part in pairs(CharacterParts) do
+            if part and part.Parent then
+                part.Transparency = Config.Transparency
+            end
+        end
+    end
+end)
+
+CreateSlider("Ghost Distance", 75, 10000, 500000, Config.TeleportDistance, function(val, lbl, name)
+    Config.TeleportDistance = math.floor(val)
+    lbl.Text = name .. ": " .. tostring(Config.TeleportDistance)
+end)
+
+local DragBar = Instance.new("Frame")
+DragBar.Size = UDim2.new(1, 0, 0, 25)
+DragBar.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+DragBar.BorderSizePixel = 0
+DragBar.Parent = MainFrame
+
+local UICornerBar = Instance.new("UICorner")
+UICornerBar.CornerRadius = UDim.new(0, 10)
+UICornerBar.Parent = DragBar
+
+local FixBarCover = Instance.new("Frame")
+FixBarCover.Size = UDim2.new(1, 0, 0, 5)
+FixBarCover.Position = UDim2.new(0, 0, 1, -5)
+FixBarCover.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+FixBarCover.BorderSizePixel = 0
+FixBarCover.Parent = DragBar
+
+local DragLabel = Instance.new("TextLabel")
+DragLabel.Size = UDim2.new(1, -22, 1, 0)
+DragLabel.Position = UDim2.new(0, 8, 0, 0)
+DragLabel.BackgroundTransparency = 1
+DragLabel.Text = "BXD INVISIBLE"
+DragLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+DragLabel.TextSize = 12
+DragLabel.Font = Enum.Font.GothamBold
+DragLabel.TextXAlignment = Enum.TextXAlignment.Left
+DragLabel.Parent = DragBar
+
+local SettingsButton = Instance.new("TextButton")
+SettingsButton.Size = UDim2.new(0, 16, 0, 16)
+SettingsButton.Position = UDim2.new(1, -20, 0.5, -8)
+SettingsButton.BackgroundTransparency = 1
+SettingsButton.Text = "⚙️"
+SettingsButton.TextSize = 11
+SettingsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+SettingsButton.Parent = DragBar
+
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(1, -16, 0, 48)
+ToggleButton.Position = UDim2.new(0, 8, 0, 35)
+ToggleButton.Text = "Invisible: OFF"
+ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextSize = 14
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.Parent = MainFrame
+
+local UICornerBtn = Instance.new("UICorner")
+UICornerBtn.CornerRadius = UDim.new(0, 8)
+UICornerBtn.Parent = ToggleButton
+
+local Dragging = false
+local DragStart, StartPos
+
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        Dragging = true
+        DragStart = input.Position
+        StartPos = MainFrame.Position
+    end
+end)
+
+local MoveConnection = UserInputService.InputChanged:Connect(function(input)
+    if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local Delta = input.Position - DragStart
+        MainFrame.Position = UDim2.new(
+            StartPos.X.Scale, 
+            StartPos.X.Offset + Delta.X, 
+            StartPos.Y.Scale, 
+            StartPos.Y.Offset + Delta.Y
+        )
+    end
+end)
+table.insert(_G.InvisibleConnections, MoveConnection)
+
+local EndConnection = UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        Dragging = false
+    end
+end)
+table.insert(_G.InvisibleConnections, EndConnection)
+
+SettingsButton.MouseButton1Click:Connect(function()
+    SettingsFrame.Visible = not SettingsFrame.Visible
+end)
+
+local function ToggleInvisibility()
+    IsInvisible = not IsInvisible
+    
+    if IsInvisible then
+        ToggleButton.Text = "Invisible: ON"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+    else
+        ToggleButton.Text = "Invisible: OFF"
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    end
+
+    for _, part in pairs(CharacterParts) do
+        if part and part.Parent then
+            part.Transparency = IsInvisible and Config.Transparency or 0
+        end
+    end
+end
+
+ToggleButton.MouseButton1Click:Connect(ToggleInvisibility)
+
+local KeyConnection = LocalPlayer:GetMouse().KeyDown:Connect(function(key)
+    if key:lower() == "g" then
+        ToggleInvisibility()
+    end
+end)
+table.insert(_G.InvisibleConnections, KeyConnection)
+
+local HeartbeatConnection = RunService.Heartbeat:Connect(function()
+    if IsInvisible and RootPart and Humanoid then
+        local OffsetFrame = CFrame.new(0, -Config.TeleportDistance, 0)
+        local OldCFrame = RootPart.CFrame
+        
+        RootPart.CFrame = OldCFrame * OffsetFrame
+        Humanoid.CameraOffset = Vector3.new(0, Config.TeleportDistance, 0)
+        
+        RunService.RenderStepped:Wait()
+        
+        RootPart.CFrame = OldCFrame
+        Humanoid.CameraOffset = Vector3.new(0, 0, 0)
+    end
+end)
+table.insert(_G.InvisibleConnections, HeartbeatConnection)
+
+local CharAddedConnection = LocalPlayer.CharacterAdded:Connect(function(newChar)
+    IsInvisible = false
+    ToggleButton.Text = "Invisible: OFF"
+    ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    
+    Character = newChar
+    Humanoid = Character:WaitForChild("Humanoid")
+    RootPart = Character:WaitForChild("HumanoidRootPart")
+    CacheCharacterParts(Character)
+end)
+table.insert(_G.InvisibleConnections, CharAddedConnection)
